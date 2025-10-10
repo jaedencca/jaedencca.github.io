@@ -8,7 +8,7 @@
 
 
 ## Physical Characteristics
-The Amazonian giant centipede (Scolopendra gigantea) is a striking invertebrate with a long, segmented body that can exceed 30 centimeters (12 inches) in length. Its exoskeleton ranges in color from deep red to dark brown or black, often with yellow-tinted legs that help it blend into the forest floor. Each body segment bears a pair of legs—typically 21 to 23 pairs in total—enabling remarkable speed and agility. Its front pair of modified legs, known as forcipules, are equipped with venom glands that inject paralyzing toxins into prey.
+> The Amazonian giant centipede (Scolopendra gigantea) is a striking invertebrate with a long, segmented body that can exceed 30 centimeters (12 inches) in length. Its exoskeleton ranges in color from deep red to dark brown or black, often with yellow-tinted legs that help it blend into the forest floor. Each body segment bears a pair of legs—typically 21 to 23 pairs in total—enabling remarkable speed and agility. Its front pair of modified legs, known as forcipules, are equipped with venom glands that inject paralyzing toxins into prey.
 
 ## Habitat and Behavior
 ![Amazonian Giant Centipede Habitat](https://simplyecologist.com/wp-content/uploads/2024/12/centipede_natural_living_environment.jpg)
