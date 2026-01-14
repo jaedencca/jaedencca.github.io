@@ -1,5 +1,7 @@
 # Jaeden Cox Arnsdorf
-<img src="https://jaedenarnsdorf.com/resources/IMG_5803.jpg" width="300" height="300">
+<img src="https://jaedenarnsdorf.com/resources/IMG_5803.jpg" width="250" height="300">
+
+
 📧 jaeden.cade@awesome.com  
 🌐 http://www.jaedenarnsdorf.com  
 🔗 http://www.linkedin.com/in/link_with_me  
