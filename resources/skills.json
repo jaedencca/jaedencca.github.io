@@ -1,0 +1,26 @@
+[
+  {
+    "title": "GIS & Spatial Analysis",
+    "details": "Proficient in geographic information systems, spatial data analysis, and creating maps to visualize geographic patterns and relationships."
+  },
+  {
+    "title": "Data Visualization",
+    "details": "Creating compelling visual narratives through charts, maps, and interactive dashboards to communicate complex data insights."
+  },
+  {
+    "title": "Python & R",
+    "details": "Programming and data analysis using Python libraries (pandas, geopandas, matplotlib) and R for statistical computing and graphics."
+  },
+  {
+    "title": "Mapbox & Web Mapping",
+    "details": "Building interactive web maps using Mapbox GL JS, Leaflet, and other web mapping frameworks for dynamic geographic applications."
+  },
+  {
+    "title": "QGIS",
+    "details": "Advanced GIS software for spatial data manipulation, geoprocessing, cartography, and creating professional-quality maps."
+  },
+  {
+    "title": "Statistical Analysis",
+    "details": "Applying statistical methods to analyze data, identify patterns, test hypotheses, and derive meaningful insights from complex datasets."
+  }
+]

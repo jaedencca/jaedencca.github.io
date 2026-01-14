@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+    <meta charset="utf-8">
+    <title>Tesla Chargers</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Layout: make the map fullscreen and the side-panel a floating overlay on the right */
+        #container {
+            height: 100vh;
+        }
+
+        /* Fullscreen map behind everything */
+        #map {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Floating panel on the right */
+        #side-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            bottom: 20px; /* constrain the panel to the viewport bottom */
+            width: 420px;
+            max-width: calc(100% - 40px);
+            /* use flex so the inner body can scroll without the panel growing beyond viewport */
+            display: flex;
+            flex-direction: column;
+            padding: 18px;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            border-radius: 8px;
+            z-index: 2;
+            backdrop-filter: blur(6px);
+            box-sizing: border-box; /* include padding/border in sizing */
+        }
+
+        #side-panel h2 {
+            text-align: center;
+            margin-bottom: 14px;
+            color: #2b8cbe;
+        }
+
+        /* The scrollable area inside the floating panel */
+        .panel-body {
+            /* take remaining space inside the panel */
+            flex: 1 1 auto;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch; /* smoother scrolling on iOS */
+            padding-right: 4px; /* avoid content flush against scrollbar */
+        }
+
+        /* Ensure the table inside the panel body doesn't overflow horizontally */
+        .panel-body table {
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .panel-body td, .panel-body th {
+            word-break: break-word;
+        }
+
+        button {
+            margin-bottom: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 16px;
+        }
+
+        /* Table styles */
+        tr {
+            transition: all 0.2s ease-in-out;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* Skip header row for hover effects */
+        tr:not(:first-child) {
+            cursor: pointer;
+        }
+
+        tr:not(:first-child):hover {
+            background-color: #2b8cbe20;
+            transform: translateX(5px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Style the header row */
+        tr:first-child {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        /* Responsive layout */
+        @media screen and (max-width: 1024px) {
+            #side-panel {
+                display: none;
+            }
+            
+            #map {
+                width: 100%;
+            }
+        }
+
+        /* Style for the popup */
+        .station-popup {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-size: 14px;
+            padding: 5px 10px;
+        }
+        
+        .station-popup .mapboxgl-popup-content {
+            padding: 12px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .station-popup strong {
+            color: #2b8cbe;
+            display: block;
+            margin-bottom: 4px;
+        }
+    </style>
+</head> 
+ <body>
+   <main id="container">
+       <div id="side-panel">
+
+           <h2>Seattle Tesla Charger Stations</h2>
+           <div class="panel-body">
+               <label for="style-select">Map style:</label>
+               <select id="style-select" aria-label="Map style selector">
+                   <option value="mapbox://styles/mapbox/streets-v11">Streets</option>
+                   <option value="mapbox://styles/mapbox/light-v10">Light</option>
+                   <option value="mapbox://styles/mapbox/dark-v10">Dark</option>
+                   <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
+               </select>
+
+               <button id="btn-connectors">Sort by Connector Count</button>
+
+               <table>
+                   <tr>
+                       <th>Station Name</th>
+                       <th>City</th>
+                       <th>Connector Count</th>
+                   </tr>
+               </table>
+           </div>
+
+       </div>
+       <div id="map"></div>
+   </main>
+   <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiamFlZGVuY2NhIiwiYSI6ImNtaGM4cDNxdDI3cHkya3B1emRxYzJuNWQifQ.GD3_Rhp6YQw5CkRSFClT0w';
+
+        // default initial style (non-satellite)
+        const initialStyle = 'mapbox://styles/mapbox/streets-v11';
+        let evdataGlobal = null;
+        let seattleDataGlobal = null;
+
+        let map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: initialStyle,
+            zoom: 12, // starting zoom for Seattle city view
+            center: [-122.3321, 47.6062] // center on Seattle downtown
+        });
+
+        // Helper: remove layer/source safely
+        function removeLayerIfExists(id) {
+            if (map.getLayer(id)) map.removeLayer(id);
+        }
+        function removeSourceIfExists(id) {
+            if (map.getSource(id)) map.removeSource(id);
+        }
+
+        // Add our data layers (call after style is loaded)
+        function addDataLayers() {
+            if (!evdataGlobal) return;
+
+            // remove existing layers/sources if present
+            removeLayerIfExists('evstations-layer');
+            removeSourceIfExists('evstations');
+            removeLayerIfExists('seattle-fill');
+            removeLayerIfExists('seattle-outline');
+            removeSourceIfExists('seattle');
+
+            // add seattle boundary if available
+            if (seattleDataGlobal) {
+                map.addSource('seattle', { type: 'geojson', data: seattleDataGlobal });
+                map.addLayer({
+                    'id': 'seattle-fill',
+                    'type': 'fill',
+                    'source': 'seattle',
+                    'paint': { 'fill-color': '#2b8cbe', 'fill-opacity': 0.15 }
+                });
+                map.addLayer({
+                    'id': 'seattle-outline',
+                    'type': 'line',
+                    'source': 'seattle',
+                    'paint': { 'line-color': '#2b8cbe', 'line-width': 2, 'line-opacity': 0.8 }
+                });
+            }
+
+            // add EV stations
+            map.addSource('evstations', { type: 'geojson', data: evdataGlobal });
+
+            // Keep track of the hovered feature
+            let hoveredStateId = null;
+
+            map.addLayer({
+                'id': 'evstations-layer',
+                'type': 'circle',
+                'source': 'evstations',
+                'paint': {
+                    'circle-radius': [ 'case', ['boolean', ['feature-state', 'hover'], false], 12, 8 ],
+                    'circle-stroke-width': [ 'case', ['boolean', ['feature-state', 'hover'], false], 3, 2 ],
+                    'circle-color': '#2b8cbe',
+                    'circle-stroke-color': 'white'
+                }
+            });
+
+            // popup handling for hover
+            const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 15, className: 'station-popup' });
+
+            map.on('mouseenter', 'evstations-layer', (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+                if (e.features.length > 0) {
+                    const feature = e.features[0];
+                    if (hoveredStateId !== null) {
+                        map.setFeatureState({ source: 'evstations', id: hoveredStateId }, { hover: false });
+                    }
+                    hoveredStateId = feature.id;
+                    map.setFeatureState({ source: 'evstations', id: hoveredStateId }, { hover: true });
+
+                    const coordinates = feature.geometry.coordinates.slice();
+                    const stationName = feature.properties['Station Name'];
+                    const connectorCount = feature.properties['EV J3400 Connector Count'];
+                    const popupContent = `<strong>${stationName}</strong><br>Connectors: ${connectorCount}`;
+
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+
+                    popup.setLngLat(coordinates).setHTML(popupContent).addTo(map);
+                }
+            });
+
+            map.on('mouseleave', 'evstations-layer', () => {
+                map.getCanvas().style.cursor = '';
+                if (hoveredStateId !== null) {
+                    map.setFeatureState({ source: 'evstations', id: hoveredStateId }, { hover: false });
+                }
+                hoveredStateId = null;
+                popup.remove();
+            });
+        }
+
+        async function geojsonFetch() {
+            let response;
+            response = await fetch('assets/grouped_ev_stations.geojson');
+            evdataGlobal = await response.json();
+
+            // Add unique IDs to each feature for hover state tracking
+            evdataGlobal.features = evdataGlobal.features.map((feature, index) => {
+                feature.id = index;
+                return feature;
+            });
+
+            // fetch seattle boundary too so we can re-add when styles change
+            response = await fetch('assets/seattle.geojson');
+            seattleDataGlobal = await response.json();
+
+            // populate table
+            table = document.getElementsByTagName("table")[0];
+            let row, cell0, cell1, cell2;
+            for (let i = 0; i < evdataGlobal.features.length; i++) {
+                row = table.insertRow(-1);
+                // Add hover effect and pointer cursor
+                row.style.cursor = 'pointer';
+                row.addEventListener('mouseenter', () => row.style.backgroundColor = '#f0f0f0');
+                row.addEventListener('mouseleave', () => row.style.backgroundColor = '');
+                
+                cell0 = row.insertCell(0);
+                cell1 = row.insertCell(1);
+                cell2 = row.insertCell(2);
+
+                const props = evdataGlobal.features[i].properties || {};
+                const coords = evdataGlobal.features[i].geometry.coordinates;
+                cell0.innerHTML = props['Station Name'] || '';
+                cell1.innerHTML = props['City'] || '';
+                cell2.innerHTML = props['EV J3400 Connector Count'] || '0';
+                
+                // Add click handler to fly to location
+                row.addEventListener('click', () => {
+                    map.flyTo({ center: coords, zoom: 15, essential: true });
+                });
+            }
+
+            // When the map style finishes loading initially, add layers
+            map.on('load', () => {
+                addDataLayers();
+            });
+
+            // Wire up style selector so layers are re-added after style change
+            const styleSelect = document.getElementById('style-select');
+            styleSelect.value = initialStyle;
+            styleSelect.addEventListener('change', (e) => {
+                const newStyle = e.target.value;
+                map.setStyle(newStyle);
+                // once the style is loaded, re-add our sources/layers
+                map.once('styledata', () => {
+                    addDataLayers();
+                });
+            });
+        };
+
+        geojsonFetch();
+
+        // wire up the sort button
+        let btnConnectors = document.getElementById('btn-connectors');
+        btnConnectors.addEventListener('click', sortTableByConnectors);
+
+        function sortTableByConnectors() {
+            let table = document.getElementsByTagName("table")[0];
+            let switching = true;
+            
+            while (switching) {
+                switching = false;
+                let rows = table.rows;
+                
+                for (let i = 1; i < (rows.length - 1); i++) {
+                    let shouldSwitch = false;
+                    let currentRow = rows[i].getElementsByTagName("td");
+                    let nextRow = rows[i + 1].getElementsByTagName("td");
+                    
+                    // Connector count is in column index 2
+                    let currentCount = parseInt(currentRow[2].innerHTML) || 0;
+                    let nextCount = parseInt(nextRow[2].innerHTML) || 0;
+                    
+                    // Sort by count in descending order (higher numbers first)
+                    if (currentCount < nextCount) {
+                        shouldSwitch = true;
+                    } else if (currentCount === nextCount) {
+                        // If counts are equal, sort alphabetically by station name
+                        let currentName = currentRow[0].innerHTML.toLowerCase();
+                        let nextName = nextRow[0].innerHTML.toLowerCase();
+                        if (currentName > nextName) {
+                            shouldSwitch = true;
+                        }
+                    }
+                    
+                    if (shouldSwitch) {
+                        rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                        switching = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Log the results to verify sorting (for debugging)
+            console.log("Sorted table:");
+            let rows = table.rows;
+            for (let i = 1; i < rows.length; i++) {
+                let count = rows[i].getElementsByTagName("td")[2].innerHTML;
+                let name = rows[i].getElementsByTagName("td")[0].innerHTML;
+                console.log(`Count: ${count}, Name: ${name}`);
+            }
+        }
+   </script>
+</body>  
+<html>   
